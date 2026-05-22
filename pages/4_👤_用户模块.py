@@ -4,7 +4,7 @@
 import streamlit as st
 import pandas as pd
 from database.mysql_conn import User, SessionLocal, test_connection, init_db
-from utils.helpers import hash_password
+from utils.helpers import hash_password, verify_password, validate_password_strength
 
 st.set_page_config(
     page_title="用户管理 - 金融数据分析系统",
@@ -72,22 +72,15 @@ with col_edit:
         if btn:
             if not old_pw or not new_pw or not new_pw2:
                 st.warning("请填写完整")
-            elif len(new_pw) < 3:
-                st.warning("新密码至少3个字符")
             elif new_pw != new_pw2:
                 st.warning("两次新密码不一致")
+            elif not validate_password_strength(new_pw)[0]:
+                st.warning(validate_password_strength(new_pw)[1])
             else:
                 db = SessionLocal()
                 try:
-                    u = (
-                        db.query(User)
-                        .filter(
-                            User.id == user_id,
-                            User.password == hash_password(old_pw),
-                        )
-                        .first()
-                    )
-                    if not u:
+                    u = db.query(User).filter(User.id == user_id).first()
+                    if not u or not verify_password(old_pw, u.password):
                         st.error("原密码错误")
                     else:
                         u.password = hash_password(new_pw)

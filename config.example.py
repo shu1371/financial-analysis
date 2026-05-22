@@ -1,11 +1,12 @@
 """
-系统配置文件
+系统配置文件（模板）
+复制此文件为 config.py 并填写实际值
 """
 # MySQL 数据库配置
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "root"
-DB_PASSWORD = "110110"
+DB_PASSWORD = "请在此填写数据库密码"
 DB_NAME = "financial_analysis"
 
 # 数据库连接URL

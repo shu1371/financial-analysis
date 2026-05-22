@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 from database.mysql_conn import SessionLocal, init_db, UserStock
-from utils.helpers import get_stock_name, fetch_stock_hist
+from utils.helpers import get_stock_name, fetch_stock_hist, escape_html
 
 st.set_page_config(
     page_title="首页 - 金融数据分析系统",
@@ -157,8 +157,8 @@ else:
 
             with col1:
                 st.markdown(
-                    f"**{row['股票名称']}**  "
-                    f"<span style='color:#888;font-size:0.85rem;'>{row['代码']}</span>",
+                    f"**{escape_html(row['股票名称'])}**  "
+                    f"<span style='color:#888;font-size:0.85rem;'>{escape_html(row['代码'])}</span>",
                     unsafe_allow_html=True,
                 )
                 # 迷你走势图

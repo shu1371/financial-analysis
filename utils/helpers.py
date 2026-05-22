@@ -157,12 +157,68 @@ def calc_rsi(df, period=14):
     return df
 
 
+# ==================== XSS 防护工具 ====================
+import html as _html
+
+
+def escape_html(text: str) -> str:
+    """转义 HTML 特殊字符，防止 XSS"""
+    return _html.escape(str(text), quote=True)
+
+
+def escape_js(text: str) -> str:
+    """转义字符串用于安全嵌入 JavaScript 上下文"""
+    return str(text).replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"') \
+        .replace("<", "\\x3c").replace(">", "\\x3e").replace("&", "\\x26")
+
+
 # ==================== 密码哈希工具 ====================
 import hashlib
+import secrets
 
-SALT = "fin_analysis_2024"
+# PBKDF2 迭代次数（OWASP 2023 推荐：SHA256 ≥ 600,000）
+_PBKDF2_ITERATIONS = 600_000
+_HASH_PREFIX_V2 = "pbkdf2$"  # 新版格式前缀，用于区分旧 SHA256 哈希
 
 
 def hash_password(password: str) -> str:
-    """对密码进行 SHA256 哈希"""
-    return hashlib.sha256((password + SALT).encode("utf-8")).hexdigest()
+    """对密码进行 PBKDF2-SHA256 哈希（随机盐，600k 次迭代）"""
+    salt = secrets.token_hex(16)  # 16 字节随机盐 → 32 hex 字符
+    key = hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), salt.encode("utf-8"), _PBKDF2_ITERATIONS
+    )
+    return f"{_HASH_PREFIX_V2}{salt}${key.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """验证密码，兼容旧版 SHA256 格式和新版 PBKDF2 格式"""
+    if stored.startswith(_HASH_PREFIX_V2):
+        # 新版格式：pbkdf2$<salt>$<hash>
+        _, salt, key_hex = stored.split("$", 2)
+        new_key = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt.encode("utf-8"), _PBKDF2_ITERATIONS
+        )
+        return secrets.compare_digest(new_key.hex(), key_hex)
+    # 旧版 SHA256 + static salt（向后兼容）
+    return secrets.compare_digest(
+        stored,
+        hashlib.sha256((password + "fin_analysis_2024").encode("utf-8")).hexdigest(),
+    )
+
+
+def needs_password_upgrade(stored: str) -> bool:
+    """检查密码哈希是否需要升级到新版 PBKDF2 格式"""
+    return not stored.startswith(_HASH_PREFIX_V2)
+
+
+def validate_password_strength(password: str) -> tuple:
+    """校验密码强度，返回 (is_valid: bool, error_message: str)"""
+    if len(password) < 8:
+        return False, "密码至少需要 8 个字符"
+    if not any(c.isupper() for c in password):
+        return False, "密码必须包含至少一个大写字母"
+    if not any(c.islower() for c in password):
+        return False, "密码必须包含至少一个小写字母"
+    if not any(c.isdigit() for c in password):
+        return False, "密码必须包含至少一个数字"
+    return True, ""

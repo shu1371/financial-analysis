@@ -5,7 +5,7 @@ import streamlit as st
 import pymysql
 import config
 from datetime import datetime
-from utils.helpers import hash_password
+from utils.helpers import hash_password, verify_password, escape_html, escape_js
 
 st.set_page_config(
     page_title="游戏中心 - 金融数据分析系统",
@@ -211,11 +211,18 @@ if not st.session_state.get("logged_in"):
                         try:
                             with conn.cursor() as cur:
                                 cur.execute(
-                                    "SELECT id FROM users WHERE username = %s AND password = %s",
-                                    (recover_user, hash_password(pwd)),
+                                    "SELECT id, password FROM users WHERE username = %s",
+                                    (recover_user,),
                                 )
                                 user_row = cur.fetchone()
-                                if user_row:
+                                if user_row and verify_password(pwd, user_row["password"]):
+                                    # 旧格式自动升级
+                                    if "$" not in user_row["password"]:
+                                        cur.execute(
+                                            "UPDATE users SET password = %s WHERE id = %s",
+                                            (hash_password(pwd), user_row["id"]),
+                                        )
+                                        conn.commit()
                                     st.session_state["logged_in"] = True
                                     st.session_state["username"] = recover_user
                                     st.session_state["user_id"] = user_row["id"]
@@ -273,9 +280,11 @@ def get_leaderboard(game_type: str, order_desc: bool = True):
                 )
             else:
                 order = "DESC" if order_desc else "ASC"
+                if order not in ("ASC", "DESC"):
+                    order = "DESC"
                 cur.execute(
-                    f"SELECT username, score, last_updated FROM game_scores "
-                    f"WHERE game_type = %s ORDER BY score {order} LIMIT 10",
+                    "SELECT username, score, last_updated FROM game_scores "
+                    "WHERE game_type = %s ORDER BY score " + order + " LIMIT 10",
                     (game_type,),
                 )
             return cur.fetchall()
@@ -360,7 +369,7 @@ with c1:
             右上角实时查看股价走势图<br>
             存活越久，股价越高，排名越高！
         </p>
-        <a href="/app/static/snake_game.html?username={username}" target="_blank" rel="opener"
+        <a href="/app/static/snake_game.html?username={escape_html(username)}" target="_blank" rel="opener"
            style="display:inline-block;margin-top:16px;padding:12px 40px;background:#238636;
                   color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:1rem;">
            🎮 在新窗口开始游戏
@@ -378,7 +387,7 @@ with c2:
             合成128元及以上即可上榜<br>
             按最大资产排名，相同时用时短优先
         </p>
-        <a href="/app/static/merge1024_game.html?username={username}" target="_blank" rel="opener"
+        <a href="/app/static/merge1024_game.html?username={escape_html(username)}" target="_blank" rel="opener"
            style="display:inline-block;margin-top:16px;padding:12px 40px;background:#d4a72c;
                   color:#000;border-radius:8px;text-decoration:none;font-weight:bold;font-size:1rem;">
            🎮 在新窗口开始游戏
