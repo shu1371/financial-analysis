@@ -3,6 +3,7 @@ MySQL 数据库连接模块
 """
 from sqlalchemy import create_engine, text, Column, Integer, String, DateTime, ForeignKey, Float
 from sqlalchemy.orm import sessionmaker, declarative_base
+import pymysql
 import config
 
 # 创建数据库引擎
@@ -23,8 +24,7 @@ class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), unique=True, nullable=False, comment="用户名")
-    password = Column(String(100), nullable=False, comment="密码(SHA256)")
-    is_admin = Column(Integer, default=0, nullable=False, comment="是否管理员 0=否 1=是")
+    password = Column(String(256), nullable=False, comment="密码(PBKDF2-SHA256)")
     created_at = Column(DateTime, server_default=text("CURRENT_TIMESTAMP"), comment="注册时间")
 
 
@@ -69,4 +69,11 @@ def init_db():
         print("数据库引擎未初始化，跳过建表")
         return
     Base.metadata.create_all(bind=engine)
+    # 兼容旧表：扩展 password 列以容纳新版 PBKDF2 哈希
+    with engine.connect() as conn:
+        conn.execute(text(
+            "ALTER TABLE users MODIFY COLUMN password VARCHAR(256) "
+            "NOT NULL COMMENT '密码(PBKDF2-SHA256)'"
+        ))
+        conn.commit()
     print("数据库表初始化完成")

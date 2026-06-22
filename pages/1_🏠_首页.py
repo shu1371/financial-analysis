@@ -7,8 +7,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 from database.mysql_conn import SessionLocal, init_db, UserStock
-from utils.helpers import get_stock_name, fetch_stock_hist
-from utils.security import check_input_safety
+from utils.helpers import get_stock_name, fetch_stock_hist, escape_html
 
 st.set_page_config(
     page_title="首页 - 金融数据分析系统",
@@ -48,14 +47,9 @@ with st.sidebar:
     - 📈 **股票分析** — K线/均线/RSI
     - 📊 **数据统计** — 收益率/波动率
     - 👤 **用户管理** — 个人信息
-    - 🎮 **游戏中心** — 游戏排行榜
+    - 🎮 **游戏中心** — 预留
     """
     )
-    if st.session_state.get("is_admin"):
-        st.markdown("---")
-        st.markdown("### 🔧 系统管理")
-        if st.button("🔧 管理员后台", use_container_width=True):
-            st.switch_page("pages/6_🔧_管理员后台.py")
     st.markdown("---")
     st.caption("期末课设项目 | Powered by Streamlit")
 
@@ -163,8 +157,8 @@ else:
 
             with col1:
                 st.markdown(
-                    f"**{row['股票名称']}**  "
-                    f"<span style='color:#888;font-size:0.85rem;'>{row['代码']}</span>",
+                    f"**{escape_html(row['股票名称'])}**  "
+                    f"<span style='color:#888;font-size:0.85rem;'>{escape_html(row['代码'])}</span>",
                     unsafe_allow_html=True,
                 )
                 # 迷你走势图
@@ -258,8 +252,6 @@ with col4:
 
 if add_btn:
     new_code = new_code.strip().zfill(6)
-    # 🔒 安全检查
-    check_input_safety(new_code, "股票代码")
     if len(new_code) != 6 or not new_code.isdigit():
         st.error("请输入正确的6位股票代码")
     elif new_price <= 0:

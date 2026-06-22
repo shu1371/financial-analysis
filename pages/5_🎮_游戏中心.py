@@ -5,9 +5,7 @@ import streamlit as st
 import pymysql
 import config
 from datetime import datetime
-from utils.helpers import hash_password
-from utils.database import ensure_game_scores_table
-from utils.security import check_input_safety
+from utils.helpers import hash_password, verify_password, escape_html, escape_js
 
 st.set_page_config(
     page_title="游戏中心 - 金融数据分析系统",
@@ -27,13 +25,6 @@ def get_db():
         charset="utf8mb4",
         cursorclass=pymysql.cursors.DictCursor,
     )
-
-
-# 确保游戏成绩表存在
-try:
-    ensure_game_scores_table()
-except Exception:
-    pass
 
 
 def save_score(game_type: str, username: str, score: float, higher_better: bool = True, max_tile: int = None):
@@ -118,10 +109,6 @@ if "game_type" in st.query_params:
         score = 0
     save_username = st.session_state.get("username") or st.query_params.get("username", "")
 
-    # 🔒 安全检查 — 游戏返回参数
-    check_input_safety(game_type, "游戏类型参数")
-    check_input_safety(save_username, "游戏用户名参数")
-
     if not save_username or save_username == "anonymous":
         st.toast("无法识别用户身份，成绩未保存", icon="⚠️")
     else:
@@ -154,13 +141,12 @@ if "game_type" in st.query_params:
         conn = get_db()
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT id, is_admin FROM users WHERE username = %s", (save_username,))
+                cur.execute("SELECT id FROM users WHERE username = %s", (save_username,))
                 user_row = cur.fetchone()
                 if user_row:
                     st.session_state["logged_in"] = True
                     st.session_state["username"] = save_username
                     st.session_state["user_id"] = user_row["id"]
-                    st.session_state["is_admin"] = bool(user_row["is_admin"])
         except Exception:
             pass
         finally:
@@ -175,9 +161,6 @@ if not st.session_state.get("logged_in"):
     recover_user = st.query_params.get("recover_user")
 
     if recover_user:
-        # 🔒 安全检查 — URL 参数
-        check_input_safety(recover_user, "会话恢复参数")
-
         # 检查是否在 2 小时内，是则自动恢复
         auto_login = False
         ts_str = st.query_params.get("ts", "")
@@ -194,13 +177,12 @@ if not st.session_state.get("logged_in"):
             conn = get_db()
             try:
                 with conn.cursor() as cur:
-                    cur.execute("SELECT id, is_admin FROM users WHERE username = %s", (recover_user,))
+                    cur.execute("SELECT id FROM users WHERE username = %s", (recover_user,))
                     user_row = cur.fetchone()
                     if user_row:
                         st.session_state["logged_in"] = True
                         st.session_state["username"] = recover_user
                         st.session_state["user_id"] = user_row["id"]
-                        st.session_state["is_admin"] = bool(user_row["is_admin"])
                         st.query_params.clear()
                         st.rerun()
                     else:
@@ -229,15 +211,21 @@ if not st.session_state.get("logged_in"):
                         try:
                             with conn.cursor() as cur:
                                 cur.execute(
-                                    "SELECT id FROM users WHERE username = %s AND password = %s",
-                                    (recover_user, hash_password(pwd)),
+                                    "SELECT id, password FROM users WHERE username = %s",
+                                    (recover_user,),
                                 )
                                 user_row = cur.fetchone()
-                                if user_row:
+                                if user_row and verify_password(pwd, user_row["password"]):
+                                    # 旧格式自动升级
+                                    if "$" not in user_row["password"]:
+                                        cur.execute(
+                                            "UPDATE users SET password = %s WHERE id = %s",
+                                            (hash_password(pwd), user_row["id"]),
+                                        )
+                                        conn.commit()
                                     st.session_state["logged_in"] = True
                                     st.session_state["username"] = recover_user
                                     st.session_state["user_id"] = user_row["id"]
-                                    st.session_state["is_admin"] = bool(user_row["is_admin"])
                                     st.query_params.clear()
                                     st.rerun()
                                 else:
@@ -292,9 +280,11 @@ def get_leaderboard(game_type: str, order_desc: bool = True):
                 )
             else:
                 order = "DESC" if order_desc else "ASC"
+                if order not in ("ASC", "DESC"):
+                    order = "DESC"
                 cur.execute(
-                    f"SELECT username, score, last_updated FROM game_scores "
-                    f"WHERE game_type = %s ORDER BY score {order} LIMIT 10",
+                    "SELECT username, score, last_updated FROM game_scores "
+                    "WHERE game_type = %s ORDER BY score " + order + " LIMIT 10",
                     (game_type,),
                 )
             return cur.fetchall()
@@ -308,12 +298,8 @@ def get_leaderboard(game_type: str, order_desc: bool = True):
 with st.sidebar:
     st.title("📊 金融数据分析")
     st.markdown(f"👤 **{username}**")
-    if st.session_state.get("is_admin"):
-        st.markdown("---")
-        if st.button("🔧 管理员后台", use_container_width=True):
-            st.switch_page("pages/6_🔧_管理员后台.py")
     if st.button("🚪 退出", use_container_width=True):
-        for key in ["logged_in", "username", "user_id", "is_admin"]:
+        for key in ["logged_in", "username", "user_id"]:
             st.session_state[key] = False if key == "logged_in" else ("" if key == "username" else None)
         st.components.v1.html("""
         <script>
@@ -383,7 +369,7 @@ with c1:
             右上角实时查看股价走势图<br>
             存活越久，股价越高，排名越高！
         </p>
-        <a href="/app/static/snake_game.html?username={username}" target="_blank" rel="opener"
+        <a href="/app/static/snake_game.html?username={escape_html(username)}" target="_blank" rel="opener"
            style="display:inline-block;margin-top:16px;padding:12px 40px;background:#238636;
                   color:#fff;border-radius:8px;text-decoration:none;font-weight:bold;font-size:1rem;">
            🎮 在新窗口开始游戏
@@ -401,7 +387,7 @@ with c2:
             合成128元及以上即可上榜<br>
             按最大资产排名，相同时用时短优先
         </p>
-        <a href="/app/static/merge1024_game.html?username={username}" target="_blank" rel="opener"
+        <a href="/app/static/merge1024_game.html?username={escape_html(username)}" target="_blank" rel="opener"
            style="display:inline-block;margin-top:16px;padding:12px 40px;background:#d4a72c;
                   color:#000;border-radius:8px;text-decoration:none;font-weight:bold;font-size:1rem;">
            🎮 在新窗口开始游戏

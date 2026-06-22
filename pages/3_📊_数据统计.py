@@ -7,7 +7,6 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 
 from utils.helpers import fetch_stock_hist, get_stock_name
-from utils.security import check_input_safety
 
 st.set_page_config(
     page_title="数据统计 - 金融数据分析系统",
@@ -31,8 +30,6 @@ with st.sidebar:
     analyze_btn = st.button("📐 开始分析", type="primary", use_container_width=True)
 
 if analyze_btn and stock_code:
-    # 🔒 安全检查
-    check_input_safety(stock_code, "股票代码")
     with st.spinner("正在获取并分析数据..."):
         try:
             end_date = datetime.now().strftime("%Y%m%d")

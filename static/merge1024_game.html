@@ -71,17 +71,6 @@ var gameUsername = urlParams.get('username') || 'anonymous';
     }
     .game-over-box h2 { color: #f85149; margin-bottom: 12px; }
     .game-over-box p { color: #8b949e; margin: 4px 0; }
-    .done-message {
-        display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.75); justify-content: center; align-items: center;
-        z-index: 11;
-    }
-    .done-message.show { display: flex; }
-    .done-box {
-        background: #161b22; border: 1px solid #3fb950; border-radius: 12px;
-        padding: 30px; text-align: center;
-    }
-    .done-box h2 { color: #3fb950; margin-bottom: 12px; }
 </style>
 </head>
 <body>
@@ -119,16 +108,8 @@ var gameUsername = urlParams.get('username') || 'anonymous';
             <p>棋盘已满，没有可合并的方块</p>
             <p style="color:#f0c040;" id="failMax"></p>
             <p style="font-size:0.75rem;color:#8b949e;">（合成128元及以上资产即可计入排行）</p>
-            <button class="btn" onclick="submitResult(true)">📊 提交成绩并重新开始</button>
-            <button class="btn secondary" onclick="submitResult(false)">🚪 提交成绩并退出</button>
-        </div>
-    </div>
-
-    <div class="done-message" id="doneOverlay">
-        <div class="done-box">
-            <h2>✅ 成绩已保存</h2>
-            <p style="color:#8b949e;">排行榜已更新，可关闭此页面</p>
-            <button class="btn" onclick="window.close()">关闭</button>
+            <button class="btn" onclick="newGame()">🔄 重新开始</button>
+            <button class="btn secondary" onclick="quitGame()">🚪 退出游戏</button>
         </div>
     </div>
 </div>
@@ -294,7 +275,8 @@ function checkLose() {
     gameActive = false;
     if (timerInterval) clearInterval(timerInterval);
     if (maxTileAchieved >= 128) {
-        document.getElementById('failMax').textContent = '最大资产: ' + (TILE_LABELS[maxTileAchieved] || (maxTileAchieved + ' 元')) + '（成绩可提交）';
+        submitResult(false);
+        document.getElementById('failMax').textContent = '最大资产: ' + (TILE_LABELS[maxTileAchieved] || (maxTileAchieved + ' 元')) + '（成绩已记录）';
     } else {
         document.getElementById('failMax').textContent = '最大资产: ' + (TILE_LABELS[maxTileAchieved] || (maxTileAchieved + ' 元')) + '（需达到128元才记录）';
     }
@@ -313,23 +295,23 @@ function submitResult(restart) {
     }
     if (restart) {
         setTimeout(function() { window.location.reload(); }, 400);
-    } else {
-        document.getElementById('failOverlay').classList.remove('show');
-        document.getElementById('doneOverlay').classList.add('show');
     }
 }
 
 function quitGame() {
-    if (gameActive && (scoreMerged || maxTileAchieved >= 128) && !resultSent) {
-        if (confirm('游戏还未结束，是否提交当前成绩并退出？')) {
-            submitResult(false);
-        } else {
-            window.close();
+    if (resultSent) {
+        window.close();
+        return;
+    }
+    if (scoreMerged || maxTileAchieved >= 128) {
+        submitResult(false);
+        setTimeout(function() { window.close(); }, 300);
+    } else if (hasMoved) {
+        resultSent = true;
+        if (window.opener && !window.opener.closed) {
+            window.opener.location.search = '?game_type=merge1024&score=-1&max_tile=' + maxTileAchieved + '&username=' + encodeURIComponent(gameUsername);
         }
-    } else if (gameActive && hasMoved && !resultSent) {
-        if (confirm('当前成绩未达到128元，不会计入排行榜，确定退出？')) {
-            window.close();
-        }
+        window.close();
     } else {
         window.close();
     }
@@ -352,7 +334,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 window.addEventListener('beforeunload', function() {
-    if (!gameActive && !resultSent && (scoreMerged || maxTileAchieved >= 128)) submitResult(false);
+    if (!resultSent && (scoreMerged || maxTileAchieved >= 128)) submitResult(false);
 });
 
 initGrid();

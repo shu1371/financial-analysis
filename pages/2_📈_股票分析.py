@@ -8,7 +8,6 @@ from plotly.subplots import make_subplots
 from datetime import datetime, timedelta
 
 from utils.helpers import calc_ma, calc_rsi, fetch_stock_hist, get_stock_name
-from utils.security import check_input_safety
 
 st.set_page_config(
     page_title="股票分析 - 金融数据分析系统",
@@ -40,8 +39,6 @@ with st.sidebar:
 
 # 主体区域
 if search_btn and stock_code:
-    # 🔒 安全检查
-    check_input_safety(stock_code, "股票代码")
     with st.spinner("正在获取数据..."):
         try:
             # 计算日期范围

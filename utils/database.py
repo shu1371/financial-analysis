@@ -36,36 +36,6 @@ def ensure_game_scores_table():
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                 """
             )
-            # 兼容旧表：如果表已存在但缺少 max_tile 字段，则添加
-            try:
-                cur.execute(
-                    """
-                    ALTER TABLE game_scores
-                    ADD COLUMN max_tile INT DEFAULT NULL COMMENT '最大合成资产(仅merge1024)'
-                    """
-                )
-            except Exception:
-                pass  # 字段已存在或其他错误忽略
         conn.commit()
-    finally:
-        conn.close()
-
-
-def ensure_users_admin_column():
-    """兼容旧表：确保 users 表存在 is_admin 字段"""
-    conn = get_db_connection()
-    try:
-        with conn.cursor() as cur:
-            try:
-                cur.execute(
-                    """
-                    ALTER TABLE users
-                    ADD COLUMN is_admin INT NOT NULL DEFAULT 0 COMMENT '是否管理员 0=否 1=是'
-                    """
-                )
-                conn.commit()
-                print("[OK] users.is_admin 字段已添加")
-            except Exception:
-                pass  # 字段已存在或其他错误忽略
     finally:
         conn.close()

@@ -1,13 +1,12 @@
 """
 app.py - 金融数据分析系统入口（登录页）
 
-必须先登录才能进入系统。密码使用 SHA256 哈希存储。
+必须先登录才能进入系统。密码使用 PBKDF2-SHA256 哈希存储。
 """
 import streamlit as st
 from database.mysql_conn import SessionLocal, test_connection, init_db, User
-from utils.database import ensure_game_scores_table, ensure_users_admin_column
-from utils.helpers import hash_password
-from utils.security import check_input_safety
+import json as _json
+from utils.helpers import hash_password, verify_password, needs_password_upgrade, validate_password_strength
 
 # ==================== 页面配置 ====================
 st.set_page_config(
@@ -24,8 +23,6 @@ if st.session_state.get("logged_in"):
 # ==================== 数据库初始化 ====================
 try:
     init_db()
-    ensure_game_scores_table()
-    ensure_users_admin_column()
 except Exception:
     pass
 
@@ -112,31 +109,27 @@ if auth_mode == "🔐 登录":
                 elif not username or not password:
                     st.warning("请填写用户名和密码")
                 else:
-                    # 🔒 安全检查
-                    check_input_safety(username, "登录用户名")
-                    check_input_safety(password, "登录密码")
                     with st.spinner("正在登录..."):
                         db = SessionLocal()
                         try:
-                            hashed = hash_password(password)
                             user = (
                                 db.query(User)
-                                .filter(
-                                    User.username == username,
-                                    User.password == hashed,
-                                )
+                                .filter(User.username == username)
                                 .first()
                             )
-                            if user:
+                            if user and verify_password(password, user.password):
+                                # 旧格式哈希自动升级到 PBKDF2
+                                if needs_password_upgrade(user.password):
+                                    user.password = hash_password(password)
+                                    db.commit()
                                 st.session_state["logged_in"] = True
                                 st.session_state["username"] = username
                                 st.session_state["user_id"] = user.id
-                                st.session_state["is_admin"] = bool(user.is_admin)
                                 st.success("登录成功，正在跳转...")
                                 # 保存到 localStorage，用于游戏返回时恢复会话
                                 st.components.v1.html(f"""
                                 <script>
-                                localStorage.setItem('fa_username', '{username}');
+                                localStorage.setItem('fa_username', {_json.dumps(username)});
                                 localStorage.setItem('fa_logged_in', '1');
                                 localStorage.setItem('fa_timestamp', Date.now().toString());
                                 </script>
@@ -160,7 +153,7 @@ elif auth_mode == "📝 注册":
                 "用户名", placeholder="2-20个字符", key="reg_user"
             )
             reg_pass = st.text_input(
-                "密码", type="password", placeholder="至少3个字符", key="reg_pass"
+                "密码", type="password", placeholder="8位以上，含大小写+数字", key="reg_pass"
             )
             reg_pass2 = st.text_input(
                 "确认密码", type="password", placeholder="请再次输入密码", key="reg_pass2"
@@ -179,14 +172,11 @@ elif auth_mode == "📝 注册":
                     st.warning("用户名需 2-20 个字符")
                 elif " " in reg_user:
                     st.warning("用户名不能包含空格")
-                elif len(reg_pass) < 3:
-                    st.warning("密码至少 3 个字符")
                 elif reg_pass != reg_pass2:
                     st.warning("两次密码不一致")
+                elif not validate_password_strength(reg_pass)[0]:
+                    st.warning(validate_password_strength(reg_pass)[1])
                 else:
-                    # 🔒 安全检查
-                    check_input_safety(reg_user, "注册用户名")
-                    check_input_safety(reg_pass, "注册密码")
                     with st.spinner("正在注册..."):
                         db = SessionLocal()
                         try:
@@ -217,5 +207,5 @@ elif auth_mode == "📝 注册":
 st.markdown("---")
 st.caption(
     "提示：请确保 MySQL 已启动，并在 config.py 中配置正确的连接信息。"
-    "密码采用 SHA256 加密存储。"
+    "密码采用 PBKDF2-SHA256 加密存储（OWASP 标准）。"
 )
