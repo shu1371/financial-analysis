@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>🧊 合成方块 1024 资产</title>
+<script>
+var urlParams = new URLSearchParams(window.location.search);
+var gameUsername = urlParams.get('username') || 'anonymous';
+</script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+        background: #0d1117; color: #c9d1d9; font-family: 'Microsoft YaHei', sans-serif;
+        display: flex; justify-content: center; align-items: center; min-height: 100vh;
+    }
+    .container {
+        background: #161b22; border: 1px solid #30363d; border-radius: 16px;
+        padding: 30px; text-align: center;
+    }
+    h2 { color: #f0c040; margin-bottom: 6px; font-size: 1.4rem; }
+    .subtitle { color: #8b949e; font-size: 0.85rem; margin-bottom: 16px; }
+    .stats { display: flex; justify-content: center; gap: 30px; margin-bottom: 16px; }
+    .stat-item { text-align: center; }
+    .stat-label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; }
+    .stat-value { font-size: 1.5rem; font-weight: bold; color: #f0c040; }
+    .grid-container {
+        display: inline-block; background: #1c2128; border: 2px solid #30363d;
+        border-radius: 8px; padding: 8px;
+    }
+    .grid-row { display: flex; }
+    .cell {
+        width: 90px; height: 90px; margin: 3px; border-radius: 6px;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 0.9rem; text-align: center;
+        transition: all 0.1s ease;
+    }
+    .cell-0 { background: #21262d; }
+    .cell-2 { background: #2d1f3d; color: #d2a8ff; font-size: 1.2rem; }
+    .cell-4 { background: #1f3d3d; color: #79c0c0; font-size: 1.2rem; }
+    .cell-8 { background: #3d2f1f; color: #ffb870; font-size: 1.2rem; }
+    .cell-16 { background: #3d1f1f; color: #ff7b72; font-size: 1.2rem; }
+    .cell-32 { background: #1f3d1f; color: #7ee787; font-size: 1.2rem; }
+    .cell-64 { background: #1f1f3d; color: #a5b4fc; font-size: 1.2rem; }
+    .cell-128 { background: #3d1f3d; color: #f0c040; font-size: 1.1rem; }
+    .cell-256 { background: #3d3d1f; color: #f0a040; font-size: 1.1rem; }
+    .cell-512 { background: #1f3d2f; color: #56d364; font-size: 1.1rem; }
+    .cell-1024 { background: #3d2f0f; color: #ffc040; font-size: 1rem; }
+    .btn-row { margin-top: 16px; display: flex; gap: 8px; justify-content: center; }
+    .btn {
+        padding: 10px 24px; border: none; border-radius: 8px;
+        font-size: 1rem; cursor: pointer; font-weight: bold; color: #fff;
+        background: #238636; transition: background 0.2s;
+    }
+    .btn:hover { background: #2ea043; }
+    .btn.secondary { background: #30363d; }
+    .btn.secondary:hover { background: #484f58; }
+    .win-badge {
+        display: none; background: #f0c040; color: #000; padding: 6px 16px;
+        border-radius: 20px; font-weight: bold; font-size: 0.9rem; margin: 8px 0;
+    }
+    .win-badge.show { display: inline-block; }
+    .game-over-overlay {
+        display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.75); justify-content: center; align-items: center;
+        z-index: 10;
+    }
+    .game-over-overlay.show { display: flex; }
+    .game-over-box {
+        background: #161b22; border: 1px solid #30363d; border-radius: 12px;
+        padding: 30px; text-align: center;
+    }
+    .game-over-box h2 { color: #f85149; margin-bottom: 12px; }
+    .game-over-box p { color: #8b949e; margin: 4px 0; }
+    .done-message {
+        display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.75); justify-content: center; align-items: center;
+        z-index: 11;
+    }
+    .done-message.show { display: flex; }
+    .done-box {
+        background: #161b22; border: 1px solid #3fb950; border-radius: 12px;
+        padding: 30px; text-align: center;
+    }
+    .done-box h2 { color: #3fb950; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🧊 合成方块 1024 资产</h2>
+    <p class="subtitle">合并相同数字，合成 128 元及以上即可上榜</p>
+
+    <div class="stats">
+        <div class="stat-item">
+            <div class="stat-label">当前最大</div>
+            <div class="stat-value" id="maxTile">2 元</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-label">已用时间</div>
+            <div class="stat-value" id="timer">00:00</div>
+        </div>
+    </div>
+
+    <div class="win-badge" id="winBadge">🎉 恭喜！已达成 1024 元资产</div>
+
+    <div class="grid-container">
+        <div id="grid"></div>
+    </div>
+
+    <div class="btn-row" style="margin-top:16px;">
+        <button class="btn" onclick="newGame()">🔄 重新开始</button>
+        <button class="btn secondary" onclick="quitGame()">🚪 退出游戏</button>
+    </div>
+    <p style="font-size:0.75rem;color:#8b949e;margin-top:10px;">⬆⬇⬅➡ 方向键操控 · 达成1024元自动记录成绩</p>
+
+    <div class="game-over-overlay" id="failOverlay">
+        <div class="game-over-box">
+            <h2>😞 无法继续</h2>
+            <p>棋盘已满，没有可合并的方块</p>
+            <p style="color:#f0c040;" id="failMax"></p>
+            <p style="font-size:0.75rem;color:#8b949e;">（合成128元及以上资产即可计入排行）</p>
+            <button class="btn" onclick="submitResult(true)">📊 提交成绩并重新开始</button>
+            <button class="btn secondary" onclick="submitResult(false)">🚪 提交成绩并退出</button>
+        </div>
+    </div>
+
+    <div class="done-message" id="doneOverlay">
+        <div class="done-box">
+            <h2>✅ 成绩已保存</h2>
+            <p style="color:#8b949e;">排行榜已更新，可关闭此页面</p>
+            <button class="btn" onclick="window.close()">关闭</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const TILE_LABELS = {
+    2: '2 元', 4: '4 元', 8: '8 元', 16: '16 元', 32: '32 元',
+    64: '64 元', 128: '128 元', 256: '256 元', 512: '512 元',
+    1024: '1024 元', 2048: '2048 元'
+};
+let grid = [];
+let scoreMerged = false;
+let hasMoved = false;
+let timerSeconds = 0;
+let timerInterval = null;
+let gameActive = true;
+let resultSent = false;
+let maxTileAchieved = 2;  // 记录游戏中出现的最大资产
+
+function initGrid() {
+    grid = Array.from({length: 4}, () => Array(4).fill(0));
+    scoreMerged = false; hasMoved = false; gameActive = true; resultSent = false;
+    maxTileAchieved = 2;
+    timerSeconds = 0;
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    document.getElementById('timer').textContent = '00:00';
+    document.getElementById('winBadge').classList.remove('show');
+    document.getElementById('failOverlay').classList.remove('show');
+    addRandomTile(); addRandomTile(); render();
+}
+
+function addRandomTile() {
+    const empty = [];
+    for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+            if (grid[r][c] === 0) empty.push({r, c});
+    if (empty.length === 0) return;
+    const {r, c} = empty[Math.floor(Math.random() * empty.length)];
+    grid[r][c] = Math.random() < 0.75 ? 2 : 4;
+}
+
+var cellElements = [];
+var gridInitialized = false;
+
+function render() {
+    const container = document.getElementById('grid');
+    if (!gridInitialized) {
+        // 首次创建 DOM 结构
+        let html = '';
+        for (let r = 0; r < 4; r++) {
+            html += '<div class="grid-row">';
+            for (let c = 0; c < 4; c++) {
+                html += '<div class="cell cell-0" id="cell-' + r + '-' + c + '"></div>';
+            }
+            html += '</div>';
+        }
+        container.innerHTML = html;
+        for (let r = 0; r < 4; r++)
+            for (let c = 0; c < 4; c++)
+                cellElements.push(document.getElementById('cell-' + r + '-' + c));
+        gridInitialized = true;
+    }
+    // 增量更新 cell 内容和类名
+    for (let r = 0; r < 4; r++) {
+        for (let c = 0; c < 4; c++) {
+            const val = grid[r][c];
+            const cell = cellElements[r * 4 + c];
+            const label = val > 0 ? (TILE_LABELS[val] || val + ' 元') : '';
+            const cls = 'cell cell-' + (val <= 1024 ? val : 1024);
+            if (cell.className !== cls) cell.className = cls;
+            if (cell.textContent !== label) cell.textContent = label;
+        }
+    }
+    const maxVal = Math.max(...grid.flat());
+    document.getElementById('maxTile').textContent = TILE_LABELS[maxVal] || (maxVal + ' 元');
+}
+
+function slide(row) {
+    let arr = row.filter(v => v !== 0);
+    for (let i = 0; i < arr.length - 1; i++) {
+        if (arr[i] === arr[i + 1]) { arr[i] *= 2; arr[i + 1] = 0; }
+    }
+    arr = arr.filter(v => v !== 0);
+    while (arr.length < 4) arr.push(0);
+    // 追踪最大合成资产
+    const mergedVals = arr.filter(v => v > 0);
+    if (mergedVals.length > 0) {
+        const rowMax = Math.max(...mergedVals);
+        if (rowMax > maxTileAchieved) maxTileAchieved = rowMax;
+    }
+    return arr;
+}
+
+function move(direction) {
+    if (!gameActive) return;
+    let moved = false;
+
+    if (direction === 'left') {
+        for (let r = 0; r < 4; r++) {
+            const before = grid[r].join(','); grid[r] = slide(grid[r]);
+            if (before !== grid[r].join(',')) moved = true;
+        }
+    } else if (direction === 'right') {
+        for (let r = 0; r < 4; r++) {
+            const before = grid[r].join(','); grid[r] = slide(grid[r].reverse()).reverse();
+            if (before !== grid[r].join(',')) moved = true;
+        }
+    } else if (direction === 'up') {
+        for (let c = 0; c < 4; c++) {
+            const col = [grid[0][c], grid[1][c], grid[2][c], grid[3][c]];
+            const before = col.join(','); const slid = slide(col);
+            if (before !== slid.join(',')) moved = true;
+            for (let r = 0; r < 4; r++) grid[r][c] = slid[r];
+        }
+    } else if (direction === 'down') {
+        for (let c = 0; c < 4; c++) {
+            const col = [grid[3][c], grid[2][c], grid[1][c], grid[0][c]];
+            const before = col.join(','); const slid = slide(col);
+            if (before !== slid.join(',')) moved = true;
+            for (let r = 0; r < 4; r++) grid[3 - r][c] = slid[r];
+        }
+    }
+
+    if (moved) {
+        if (!hasMoved) { hasMoved = true; startTimer(); }
+        addRandomTile(); render(); checkWin(); checkLose();
+    }
+}
+
+function startTimer() {
+    if (timerInterval) return;
+    timerInterval = setInterval(function() {
+        timerSeconds++;
+        const m = Math.floor(timerSeconds / 60), s = timerSeconds % 60;
+        document.getElementById('timer').textContent =
+            String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }, 1000);
+}
+
+function checkWin() {
+    if (scoreMerged) return;
+    for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+            if (grid[r][c] === 1024) {
+                scoreMerged = true;
+                document.getElementById('winBadge').classList.add('show');
+                // 不自动结束，玩家可以继续挑战更高资产
+            }
+}
+
+function checkLose() {
+    for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 4; c++)
+            if (grid[r][c] === 0) return;
+    for (let r = 0; r < 4; r++)
+        for (let c = 0; c < 3; c++)
+            if (grid[r][c] === grid[r][c + 1]) return;
+    for (let c = 0; c < 4; c++)
+        for (let r = 0; r < 3; r++)
+            if (grid[r][c] === grid[r + 1][c]) return;
+    // 游戏结束：棋盘已满且无法合并
+    gameActive = false;
+    if (timerInterval) clearInterval(timerInterval);
+    if (maxTileAchieved >= 128) {
+        document.getElementById('failMax').textContent = '最大资产: ' + (TILE_LABELS[maxTileAchieved] || (maxTileAchieved + ' 元')) + '（成绩可提交）';
+    } else {
+        document.getElementById('failMax').textContent = '最大资产: ' + (TILE_LABELS[maxTileAchieved] || (maxTileAchieved + ' 元')) + '（需达到128元才记录）';
+    }
+    document.getElementById('failOverlay').classList.add('show');
+}
+
+function submitResult(restart) {
+    if (resultSent) return;
+    resultSent = true;
+    gameActive = false;
+    if (timerInterval) clearInterval(timerInterval);
+    if (window.opener && !window.opener.closed) {
+        var params = '?game_type=merge1024&score=' + timerSeconds + '&max_tile=' + maxTileAchieved + '&username=' + encodeURIComponent(gameUsername);
+        if (restart) params += '&restart=1';
+        window.opener.location.search = params;
+    }
+    if (restart) {
+        setTimeout(function() { window.location.reload(); }, 400);
+    } else {
+        document.getElementById('failOverlay').classList.remove('show');
+        document.getElementById('doneOverlay').classList.add('show');
+    }
+}
+
+function quitGame() {
+    if (gameActive && (scoreMerged || maxTileAchieved >= 128) && !resultSent) {
+        if (confirm('游戏还未结束，是否提交当前成绩并退出？')) {
+            submitResult(false);
+        } else {
+            window.close();
+        }
+    } else if (gameActive && hasMoved && !resultSent) {
+        if (confirm('当前成绩未达到128元，不会计入排行榜，确定退出？')) {
+            window.close();
+        }
+    } else {
+        window.close();
+    }
+}
+
+function newGame() {
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = null;
+    initGrid();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (!gameActive) return;
+    switch(e.key) {
+        case 'ArrowUp': case 'w': case 'W': move('up'); e.preventDefault(); break;
+        case 'ArrowDown': case 's': case 'S': move('down'); e.preventDefault(); break;
+        case 'ArrowLeft': case 'a': case 'A': move('left'); e.preventDefault(); break;
+        case 'ArrowRight': case 'd': case 'D': move('right'); e.preventDefault(); break;
+    }
+});
+
+window.addEventListener('beforeunload', function() {
+    if (!gameActive && !resultSent && (scoreMerged || maxTileAchieved >= 128)) submitResult(false);
+});
+
+initGrid();
+</script>
+</body>
+</html>

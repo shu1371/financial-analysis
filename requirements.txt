@@ -1,0 +1,7 @@
+# 金融数据分析系统 - 依赖包
+streamlit>=1.28.0
+pandas>=2.1.0
+plotly>=5.17.0
+akshare>=1.12.0
+pymysql>=1.1.0
+sqlalchemy>=2.0.0
