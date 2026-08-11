@@ -1,5 +1,9 @@
 # 📊 金融数据分析系统 — 第4版
 
+![CI](https://github.com/shu1371/financial-analysis/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)
+
+
 基于 Streamlit 的 A 股金融数据分析与可视化平台，支持 K 线/趋势图绘制、技术指标分析、用户管理与游戏化互动体验。
 
 ---
@@ -28,7 +32,7 @@
 
 ### 1. 克隆仓库
 ```bash
-git clone https://github.com/Qk-max/financial-analysis.git
+git clone https://github.com/shu1371/financial-analysis.git
 cd financial-analysis
 ```
 
@@ -70,7 +74,9 @@ financial-analysis/
     ├── 2_📉_K线_趋势图.py
     ├── 3_📊_技术指标分析.py
     ├── 4_👤_用户模块.py
-    └── 5_🎮_游戏中心.py
+    ├── 5_🎮_游戏中心.py
+    ├── 6_🔧_管理员后台.py
+    └── 7_⚠️_安全警告.py
 ```
 
 ---
@@ -97,3 +103,11 @@ financial-analysis/
 ## 📄 License
 
 MIT License
+
+## 测试
+
+CI 会自动执行语法检查：
+
+```bash
+python -m compileall -q app.py database pages utils
+```
